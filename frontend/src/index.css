@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(
+      1200px 800px at 70% -10%,
+      rgba(47, 168, 255, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(900px 600px at 0% 110%, rgba(155, 107, 255, 0.1), transparent 60%),
+    #05070d;
+  color: #cfe6ff;
+  font-family: "Poppins", ui-sans-serif, system-ui;
+  overflow: hidden;
+}
+
+@layer components {
+  /* Glassmorphism HUD panel with a glowing border */
+  .panel {
+    @apply relative rounded-xl border border-nexus-blue/25 bg-nexus-panel/60
+           backdrop-blur-md shadow-glow-soft;
+  }
+  .panel-title {
+    @apply font-head text-xs uppercase tracking-[0.25em] text-nexus-cyan/80;
+  }
+}
