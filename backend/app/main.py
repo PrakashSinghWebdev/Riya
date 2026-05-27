@@ -15,8 +15,11 @@ from .api import (
     emotion,
     health,
     memory,
+    reminders,
+    research,
     security,
     settings as settings_api,
+    translate,
     vision,
     voice,
 )
@@ -53,10 +56,13 @@ def create_app() -> FastAPI:
     app.include_router(emotion.router, prefix="/api")
     app.include_router(agent.router, prefix="/api")
     app.include_router(settings_api.router, prefix="/api")
+    app.include_router(research.router, prefix="/api")
+    app.include_router(reminders.router, prefix="/api")
+    app.include_router(translate.router, prefix="/api")
+    app.include_router(automation.router, prefix="/api")
     # Reserved-contract subsystems (later phases)
     app.include_router(vision.router, prefix="/api")
     app.include_router(voice.router, prefix="/api")
-    app.include_router(automation.router, prefix="/api")
     app.include_router(security.router, prefix="/api")
 
     @app.get("/")

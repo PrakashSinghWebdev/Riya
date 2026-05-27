@@ -9,6 +9,7 @@ import {
   putSetting,
 } from "./api/client";
 import { useVoice } from "./hooks/useVoice";
+import { useVision } from "./hooks/useVision";
 import ParticleField from "./components/ParticleField";
 import Panel from "./components/Panel";
 import Waveform from "./components/Waveform";
@@ -19,8 +20,18 @@ import Drawer from "./components/Drawer";
 import MemoryPanel from "./components/MemoryPanel";
 import AgentPanel from "./components/AgentPanel";
 import EmotionPanel from "./components/EmotionPanel";
+import ToolsPanel from "./components/ToolsPanel";
+import { dueReminders } from "./api/client";
 
 const SESSION_KEY = "riya.sessionId";
+const MOOD_EMOJI = {
+  happy: "😊",
+  sad: "😔",
+  angry: "😠",
+  surprised: "😮",
+  tired: "😴",
+  neutral: "🙂",
+};
 
 export default function App() {
   const [health, setHealth] = useState(null);
@@ -37,7 +48,8 @@ export default function App() {
   const [drawer, setDrawer] = useState(null); // "memory" | "agent" | null
   const inputRef = useRef(null);
 
-  const voice = useVoice({ onFinalTranscript: (text) => sendMessage(text) });
+  const voice = useVoice({ onCommand: (text) => sendMessage(text) });
+  const vision = useVision();
 
   const refreshEmotions = useCallback((sid) => {
     if (!sid) return;
@@ -93,6 +105,52 @@ export default function App() {
   useEffect(() => {
     if (health) putSetting("voice", autoSpeak ? "on" : "off").catch(() => {});
   }, [autoSpeak, health]);
+
+  // Arm hands-free wake-word listening once, as soon as it's supported.
+  useEffect(() => {
+    if (voice.supported.stt) voice.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.supported.stt]);
+
+  // Easter egg: flip RIYA off and she fires back. Fires once per show (4s cooldown).
+  const middleFingerAt = useRef(0);
+  useEffect(() => {
+    if (!vision.gesture?.includes("Middle finger")) return;
+    const now = Date.now();
+    if (now - middleFingerAt.current < 4000) return;
+    middleFingerAt.current = now;
+    const clapback = "Fuck you, bitch!";
+    voice.speak(clapback);
+    setMessages((m) => [...m, { role: "assistant", content: clapback }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vision.gesture]);
+
+  // Poll for due reminders and alert (desktop notification + voice + message).
+  useEffect(() => {
+    if (!health) return;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+    const tick = async () => {
+      try {
+        const due = await dueReminders();
+        for (const r of due) {
+          const line = `Reminder: ${r.text}`;
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("RIYA", { body: r.text });
+          }
+          voice.speak(line);
+          setMessages((m) => [...m, { role: "assistant", content: `⏰ ${line}` }]);
+        }
+      } catch {
+        /* backend may be down briefly */
+      }
+    };
+    const id = setInterval(tick, 30000);
+    tick();
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [health]);
 
   async function newSession() {
     const s = await createSession({ mode });
@@ -173,8 +231,8 @@ export default function App() {
       <ParticleField />
 
       {/* ── Title bar ───────────────────────────────────────────── */}
-      <header className="relative z-10 flex items-center justify-between border-b border-nexus-blue/20 px-6 py-3">
-        <h1 className="font-head text-2xl tracking-[0.4em] text-nexus-cyan drop-shadow-[0_0_10px_rgba(34,224,224,0.6)]">
+      <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-nexus-blue/20 px-4 py-1.5">
+        <h1 className="font-head text-lg tracking-[0.4em] text-nexus-cyan drop-shadow-[0_0_10px_rgba(34,224,224,0.6)]">
           R I Y A
         </h1>
         <div className="flex items-center gap-3 font-head text-[11px] uppercase tracking-widest">
@@ -190,6 +248,12 @@ export default function App() {
           >
             🤖 Agent
           </button>
+          <button
+            onClick={() => setDrawer("tools")}
+            className="rounded-md border border-nexus-blue/30 px-3 py-1 text-nexus-blue/70 hover:border-nexus-cyan hover:text-nexus-cyan"
+          >
+            🛠 Tools
+          </button>
           <span className={brainOnline ? "text-nexus-success" : "text-nexus-danger"}>
             ● Brain {brainOnline ? "Online" : health ? "Offline-stub" : "—"}
           </span>
@@ -198,10 +262,83 @@ export default function App() {
       </header>
 
       {/* ── HUD grid ────────────────────────────────────────────── */}
-      <main className="relative z-10 grid flex-1 grid-cols-3 grid-rows-2 gap-4 p-4">
-        <Panel title="Camera Feed" status="standby">
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-nexus-blue/30 text-xs text-nexus-blue/50">
-            Vision module — Phase 3
+      <main className="relative z-10 grid min-h-0 flex-1 grid-cols-3 grid-rows-2 gap-2.5 p-2.5">
+        <Panel
+          title="Vision — Face & Gesture"
+          status={vision.enabled ? (vision.faceDetected ? "face ✓" : "scanning") : "off"}
+        >
+          <div className="relative h-full w-full overflow-hidden rounded-lg border border-nexus-blue/30 bg-black/50">
+            <video
+              ref={vision.videoRef}
+              muted
+              playsInline
+              style={{ transform: "scaleX(-1)" }}
+              className={`h-full w-full object-cover transition-opacity ${
+                vision.enabled ? "opacity-100" : "opacity-0"
+              }`}
+            />
+
+            {!vision.enabled ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-nexus-blue/60">
+                <span>📷 Webcam off</span>
+                <button
+                  onClick={vision.start}
+                  className="rounded-md border border-nexus-cyan bg-nexus-cyan/15 px-3 py-1 font-head text-[11px] uppercase tracking-widest text-nexus-cyan hover:bg-nexus-cyan/25"
+                >
+                  Enable camera
+                </button>
+                {vision.error && (
+                  <span className="px-2 text-center text-nexus-danger">{vision.error}</span>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="absolute left-2 top-2 flex flex-col gap-1">
+                  <span className="rounded bg-black/60 px-2 py-0.5 font-head text-[11px] uppercase tracking-wider text-nexus-cyan backdrop-blur">
+                    {MOOD_EMOJI[vision.mood] || "🙂"} {vision.mood || "…"}
+                  </span>
+                  {vision.gesture && (
+                    <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] text-nexus-purple backdrop-blur">
+                      {vision.gesture}
+                    </span>
+                  )}
+                  {vision.pose && (
+                    <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] text-nexus-blue/80 backdrop-blur">
+                      {vision.pose}
+                    </span>
+                  )}
+                </div>
+                {vision.objects?.length > 0 && (
+                  <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+                    {vision.objects.map((o) => (
+                      <span
+                        key={o}
+                        className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-nexus-success backdrop-blur"
+                      >
+                        {o}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={vision.stop}
+                  title="Turn off camera"
+                  className="absolute right-2 top-2 rounded border border-nexus-blue/40 bg-black/50 px-2 text-nexus-blue/80 backdrop-blur hover:text-nexus-danger"
+                >
+                  ✕
+                </button>
+                {!vision.ready && (
+                  <span className="absolute inset-x-0 bottom-2 text-center text-[10px] text-nexus-cyan/70">
+                    loading vision models…
+                  </span>
+                )}
+                {vision.error && (
+                  <span className="absolute inset-x-0 bottom-2 text-center text-[10px] text-nexus-danger">
+                    {vision.error}
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </Panel>
 
@@ -233,32 +370,47 @@ export default function App() {
           <Conversation messages={messages} thinking={thinking && !messages.at(-1)?.content} />
         </Panel>
 
-        <Panel title="Emotion Analysis">
-          <EmotionPanel current={emotion} summary={emotionSummary} />
+        <Panel title="Emotion Analysis" status={vision.enabled && vision.faceDetected ? "from camera" : undefined}>
+          <EmotionPanel
+            current={vision.enabled && vision.faceDetected ? vision.mood : emotion}
+            summary={emotionSummary}
+          />
         </Panel>
       </main>
 
       {/* ── Voice wave + input + modes ──────────────────────────── */}
-      <footer className="relative z-10 border-t border-nexus-blue/20 px-4 py-3">
+      <footer className="relative z-10 shrink-0 border-t border-nexus-blue/20 px-4 py-1.5">
         <Waveform active={active} />
-        {voice.interim && (
+        {voice.interim ? (
           <p className="mt-1 text-center text-xs italic text-nexus-cyan/60">“{voice.interim}”</p>
-        )}
+        ) : voice.state === "sleeping" ? (
+          <p className="mt-1 text-center text-[11px] text-nexus-blue/40">
+            Listening for “Hey RIYA”…
+          </p>
+        ) : voice.state === "active" ? (
+          <p className="mt-1 text-center text-[11px] text-nexus-cyan/70">● Listening — go ahead</p>
+        ) : null}
         {error && <p className="mt-1 text-center text-xs text-nexus-danger">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
+        <form onSubmit={handleSubmit} className="mt-1.5 flex gap-2">
           {voice.supported.stt && (
             <button
               type="button"
-              onClick={() => (voice.listening ? voice.stopListening() : voice.startListening())}
-              title={voice.listening ? "Stop listening" : "Speak to RIYA"}
-              className={`rounded-lg border px-4 font-head text-xs uppercase tracking-widest transition ${
+              onClick={() => (voice.awake ? voice.stop() : voice.start())}
+              title={
+                voice.awake
+                  ? "Voice on — say “Hey RIYA”. Click to turn off."
+                  : "Turn on hands-free voice"
+              }
+              className={`rounded-lg border px-4 font-head text-[11px] uppercase tracking-widest transition ${
                 voice.listening
                   ? "animate-pulse border-nexus-danger bg-nexus-danger/15 text-nexus-danger shadow-glow"
-                  : "border-nexus-blue/30 text-nexus-blue/70 hover:border-nexus-cyan hover:text-nexus-cyan"
+                  : voice.awake
+                    ? "border-nexus-cyan bg-nexus-cyan/10 text-nexus-cyan shadow-glow-soft"
+                    : "border-nexus-blue/30 text-nexus-blue/70 hover:border-nexus-cyan hover:text-nexus-cyan"
               }`}
             >
-              {voice.listening ? "● Rec" : "🎙 Mic"}
+              {voice.listening ? "● Listening" : voice.awake ? "👂 Awake" : "🎙 Voice off"}
             </button>
           )}
           <input
@@ -277,7 +429,7 @@ export default function App() {
           </button>
         </form>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-1.5 flex items-center justify-between gap-3">
           <ModeBar modes={modes} active={mode} onSelect={setMode} />
           {voice.supported.tts && (
             <button
@@ -308,6 +460,9 @@ export default function App() {
       </Drawer>
       <Drawer open={drawer === "agent"} title="AI Agent — Planner" onClose={() => setDrawer(null)}>
         <AgentPanel />
+      </Drawer>
+      <Drawer open={drawer === "tools"} title="Tools" onClose={() => setDrawer(null)}>
+        <ToolsPanel onSpeak={(t) => autoSpeak && voice.speak(t)} />
       </Drawer>
     </div>
   );

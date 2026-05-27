@@ -2,7 +2,7 @@
 // the bars rest flat. Real audio amplitude can be wired in later.
 export default function Waveform({ active = false, bars = 28 }) {
   return (
-    <div className="flex h-16 items-end justify-center gap-1">
+    <div className="flex h-8 items-end justify-center gap-1">
       {Array.from({ length: bars }).map((_, i) => (
         <span
           key={i}

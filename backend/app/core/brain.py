@@ -88,6 +88,7 @@ class Brain:
             model=settings.riya_model,
             messages=messages,
             temperature=0.7,
+            max_tokens=settings.riya_max_tokens,
         )
         return {
             "reply": completion.choices[0].message.content or "",
@@ -122,6 +123,7 @@ class Brain:
             model=settings.riya_model,
             messages=messages,
             temperature=0.7,
+            max_tokens=settings.riya_max_tokens,
             stream=True,
         )
         for chunk in stream:

@@ -89,3 +89,27 @@ export const planGoal = (goal) =>
 export const getSettings = () => api("/api/settings");
 export const putSetting = (key, value) =>
   api("/api/settings", { method: "PUT", body: { key, value } });
+
+// ── Internet research ─────────────────────────────────────────────
+export const research = (query) =>
+  api("/api/research", { method: "POST", body: { query } });
+
+// ── Translation ───────────────────────────────────────────────────
+export const translate = (text, target_lang) =>
+  api("/api/translate", { method: "POST", body: { text, target_lang } });
+
+// ── Reminders / scheduling ────────────────────────────────────────
+export const listReminders = () => api("/api/reminders");
+export const createReminder = (text, due_at) =>
+  api("/api/reminders", { method: "POST", body: { text, due_at } });
+export const dueReminders = () => api("/api/reminders/due");
+export const completeReminder = (id) =>
+  api(`/api/reminders/${id}/complete`, { method: "POST" });
+export const deleteReminder = (id) =>
+  api(`/api/reminders/${id}`, { method: "DELETE" });
+
+// ── Gated automation ──────────────────────────────────────────────
+export const proposeAction = (request) =>
+  api("/api/automation/propose", { method: "POST", body: { request } });
+export const executeAction = (action, target, confirm = false) =>
+  api("/api/automation/execute", { method: "POST", body: { action, target, confirm } });

@@ -1,36 +1,64 @@
-"""Automation Engine API (Phase 4 stub).
+"""Automation Engine API — gated execution (open apps / URLs / paths).
 
-This subsystem executes real actions on the host (open apps, manage files, run
-commands, control devices). Because that is high-risk, the contract is reserved
-here but intentionally NOT implemented: execution must be gated behind explicit
-user confirmation and a permission model before any action runs.
+Two-step by design for safety: `propose` interprets a request and returns a
+structured action without running anything; `execute` runs it only after the
+user confirms in the UI. Only whitelisted action types are permitted.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
+from ..core import automation as engine
 from ._stub import planned
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
 CAPABILITIES = [
-    "open applications",
-    "file management",
-    "run system commands",
-    "web browsing / research",
-    "device + IoT control",
-    "task scheduling",
-    "API integrations",
+    "open allowed applications",
+    "open a website / file / folder",
+    "type text + press keys (virtual keyboard)",
+    "move + click the cursor",
+    "switch / close windows",
+    "delete files (with confirmation)",
 ]
+
+
+class ProposeRequest(BaseModel):
+    request: str
+
+
+class ExecuteRequest(BaseModel):
+    action: str
+    target: str = ""
+    confirm: bool = False
 
 
 @router.get("/status")
 def status() -> dict:
-    return planned(
-        "Automation Engine",
-        4,
-        CAPABILITIES,
-        note="Execution is intentionally not wired up. It will require an explicit "
-        "permission model and per-action user confirmation for safety.",
+    info = planned("Automation Engine", 4, CAPABILITIES)
+    info.update(
+        {
+            "implemented": True,
+            "status": "active",
+            "actions": sorted(engine.ACTIONS),
+            "destructive": sorted(engine.DESTRUCTIVE),
+            "allowed_apps": sorted(engine.APPS),
+            "gui": engine._GUI,
+            "note": "Routine actions run instantly; destructive ones need confirm.",
+        }
     )
+    return info
+
+
+@router.post("/propose")
+def propose(body: ProposeRequest) -> dict:
+    """Interpret a request into a structured action — does NOT execute."""
+    return engine.propose(body.request)
+
+
+@router.post("/execute")
+def execute(body: ExecuteRequest) -> dict:
+    """Run an action. Destructive actions return needs_confirmation unless confirm=True."""
+    return engine.execute(body.action, body.target, confirm=body.confirm)

@@ -21,8 +21,11 @@ SUBSYSTEMS = [
     {"key": "memory", "name": "Memory System", "phase": 2, "implemented": True},
     {"key": "agent", "name": "AI Agent System", "phase": 4, "implemented": True,
      "note": "planning only; execution gated"},
-    {"key": "vision", "name": "Vision Intelligence", "phase": 3, "implemented": False},
-    {"key": "automation", "name": "Automation Engine", "phase": 4, "implemented": False},
+    {"key": "vision", "name": "Vision Intelligence", "phase": 3, "implemented": True,
+     "note": "camera face-mood + hand gestures live"},
+    {"key": "automation", "name": "Automation Engine", "phase": 4, "implemented": True,
+     "note": "gated: open apps/URLs/paths with confirmation"},
+    {"key": "research", "name": "Internet Research", "phase": 4, "implemented": True},
     {"key": "security", "name": "Security System", "phase": 3, "implemented": False},
     {"key": "decision", "name": "Decision Engine", "phase": 5, "implemented": False},
 ]

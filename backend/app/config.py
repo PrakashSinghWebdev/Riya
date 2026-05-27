@@ -28,10 +28,15 @@ class Settings(BaseSettings):
     # Override the API base URL. Blank = provider default (OpenAI's, or
     # Ollama's OpenAI-compatible endpoint at localhost:11434/v1).
     riya_base_url: str = ""
+    # Cap reply length — shorter completions finish faster and keep RIYA snappy.
+    riya_max_tokens: int = 256
 
     # Server
     riya_host: str = "127.0.0.1"
     riya_port: int = 8000
+    # Auto-reload on code changes. Handy in normal dev; can be flaky in some
+    # sandboxed/background launchers, so it's toggleable.
+    riya_reload: bool = True
 
     # Data directory (SQLite db, future vector stores). Defaults to backend/data.
     riya_data_dir: str = str(_REPO_ROOT / "backend" / "data")

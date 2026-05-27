@@ -51,11 +51,22 @@ CREATE TABLE IF NOT EXISTS settings (
     value       TEXT NOT NULL,
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Reminders / scheduled items.
+CREATE TABLE IF NOT EXISTS reminders (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    text        TEXT NOT NULL,
+    due_at      TEXT,                     -- ISO 8601; null = no specific time
+    done        INTEGER NOT NULL DEFAULT 0,
+    notified    INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_at);
 """
 
 # Bump when SCHEMA changes in a way that needs a migration. Stored via
 # PRAGMA user_version so future versions can detect and upgrade old databases.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def init_db() -> None:

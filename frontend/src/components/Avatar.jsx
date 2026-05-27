@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 // `speaking` intensifies the pulse. A real avatar render plugs in here later.
 export default function Avatar({ speaking = false }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="relative h-40 w-40">
+    <div className="flex h-full w-full items-center justify-center">
+      <div className="relative aspect-square h-full max-h-40 w-auto max-w-full">
         {[0, 1, 2].map((ring) => (
           <motion.span
             key={ring}

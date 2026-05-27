@@ -11,10 +11,10 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.riya_host,
         port=settings.riya_port,
-        reload=True,
+        reload=settings.riya_reload,
         # Only watch source; the SQLite DB lives under backend/data/ and is
         # written on every persisted message — without this the reloader would
         # restart mid-request and could orphan the process.
-        reload_dirs=["app"],
-        reload_includes=["*.py"],
+        reload_dirs=["app"] if settings.riya_reload else None,
+        reload_includes=["*.py"] if settings.riya_reload else None,
     )

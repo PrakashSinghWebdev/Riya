@@ -1,5 +1,5 @@
 // Electron main process — creates the frameless dark HUD window.
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, session } = require("electron");
 const path = require("path");
 
 // In dev we load the Vite server; in production we load the built bundle.
@@ -22,13 +22,23 @@ function createWindow() {
 
   if (START_URL) {
     win.loadURL(START_URL);
-    win.webContents.openDevTools({ mode: "detach" });
+    // DevTools is opt-in (set RIYA_DEVTOOLS=1) — auto-opening it on top of the
+    // HUD just clutters the screen with harmless internal warnings.
+    if (process.env.RIYA_DEVTOOLS) {
+      win.webContents.openDevTools({ mode: "detach" });
+    }
   } else {
     win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
 }
 
 app.whenReady().then(() => {
+  // Allow the HUD to use the webcam/microphone (Vision + voice). Electron
+  // denies media by default; we grant it for our own local app.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
+    cb(permission === "media");
+  });
+
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
